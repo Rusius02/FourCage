@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/game_palette.dart';
+import '../../match/presentation/matchmaking_screen.dart';
 import '../../match/presentation/match_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.matchmakingServerUrl});
+
+  final String? matchmakingServerUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +34,12 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     Expanded(child: _GameIntroduction(compact: compact)),
                     const SizedBox(width: 26),
-                    Expanded(child: _ModeSelection(compact: compact)),
+                    Expanded(
+                      child: _ModeSelection(
+                        compact: compact,
+                        matchmakingServerUrl: matchmakingServerUrl,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -89,9 +97,13 @@ class _GameIntroduction extends StatelessWidget {
 }
 
 class _ModeSelection extends StatelessWidget {
-  const _ModeSelection({required this.compact});
+  const _ModeSelection({
+    required this.compact,
+    required this.matchmakingServerUrl,
+  });
 
   final bool compact;
+  final String? matchmakingServerUrl;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -112,11 +124,16 @@ class _ModeSelection extends StatelessWidget {
       SizedBox(height: compact ? 9 : 12),
       _ModeCard(
         title: 'MULTIJOUEUR',
-        subtitle: 'En ligne • bientôt disponible',
+        subtitle: 'En ligne • bots si besoin',
         icon: Icons.public_rounded,
         compact: compact,
         isSecondary: true,
-        onPressed: () => _showMultiplayerInfo(context),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                MatchmakingScreen(serverUrl: matchmakingServerUrl),
+          ),
+        ),
       ),
       SizedBox(height: compact ? 8 : 12),
       Text(
@@ -126,26 +143,6 @@ class _ModeSelection extends StatelessWidget {
       ),
     ],
   );
-
-  void _showMultiplayerInfo(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.public_rounded, color: gameMint),
-        title: const Text('Multijoueur bientôt disponible'),
-        content: const Text(
-          'Le mode solo contre les bots est disponible. Le multijoueur '
-          'en ligne arrivera dans une prochaine version.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('COMPRIS'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ModeCard extends StatelessWidget {

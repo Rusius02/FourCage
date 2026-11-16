@@ -1,7 +1,11 @@
-import { defineServer } from "@colyseus/core";
+import { defineRoom, defineServer } from "@colyseus/core";
+
+import { MatchRoom } from "./rooms/match-room.js";
 
 const appConfig = defineServer({
-  rooms: {},
+  rooms: {
+    match: defineRoom(MatchRoom),
+  },
   express: (app) => {
     app.get("/health", (_request, response) => {
       response.status(200).json({

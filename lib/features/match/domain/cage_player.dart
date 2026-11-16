@@ -16,12 +16,13 @@ enum CageSide {
 }
 
 class CagePlayer {
-  CagePlayer({required this.side, required this.isHuman})
+  CagePlayer({required this.side, required this.isHuman, this.isBot = false})
     : position = side.startPosition,
       facing = side.inwardDirection;
 
   final CageSide side;
   final bool isHuman;
+  bool isBot;
   Vector2 position;
   final Vector2 facing;
   int lives = 3;

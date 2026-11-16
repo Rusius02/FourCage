@@ -12,7 +12,7 @@
     "start": "tsx watch src/index.ts",
     "build": "npm run clean && tsc -p tsconfig.build.json",
     "clean": "rimraf build",
-    "test": "node --import tsx --test test/server.test.ts"
+    "test": "node --import tsx --test \"test/*.test.ts\""
   },
   "author": "",
   "license": "UNLICENSED",
@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@colyseus/core": "^0.18.28",
+    "@colyseus/schema": "^5.0.48",
     "@colyseus/tools": "^0.18.1",
     "@colyseus/ws-transport": "^0.18.5",
     "express": "^5.2.1"

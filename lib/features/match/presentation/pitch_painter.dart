@@ -1,18 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/game_palette.dart';
-import '../application/match_controller.dart';
+import '../application/match_view_state.dart';
+import '../domain/cage_player.dart';
 import '../domain/vector2.dart';
 
 class PitchPainter extends CustomPainter {
   PitchPainter(this.match) : super(repaint: match);
 
-  final MatchController match;
+  final MatchViewState match;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.scale(size.width, size.height);
+    switch (match.viewSide) {
+      case CageSide.north:
+        canvas
+          ..translate(1, 1)
+          ..rotate(3.141592653589793);
+      case CageSide.east:
+        canvas
+          ..translate(1, 0)
+          ..rotate(1.5707963267948966);
+      case CageSide.south:
+        break;
+      case CageSide.west:
+        canvas
+          ..translate(0, 1)
+          ..rotate(-1.5707963267948966);
+    }
 
     canvas.drawRect(
       const Rect.fromLTWH(0, 0, 1, 1),
@@ -232,5 +249,5 @@ class PitchPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PitchPainter oldDelegate) =>
-      oldDelegate.match != match;
+      oldDelegate.match != match || oldDelegate.match.viewSide != match.viewSide;
 }

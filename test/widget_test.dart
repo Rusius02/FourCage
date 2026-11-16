@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:four_cage/app/four_cage_app.dart';
+import 'package:four_cage/features/home/presentation/home_screen.dart';
 
 void main() {
   testWidgets('the home screen offers solo and multiplayer modes', (
@@ -14,14 +15,17 @@ void main() {
     expect(find.text('3'), findsNWidgets(2));
   });
 
-  testWidgets('multiplayer clearly explains that it is not available yet', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const FourCageApp());
+  testWidgets('multiplayer opens the server connection flow', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HomeScreen(matchmakingServerUrl: 'http://invalid'),
+      ),
+    );
     await tester.tap(find.text('MULTIJOUEUR'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Multijoueur bientôt disponible'), findsOneWidget);
+    expect(find.text('CONNEXION IMPOSSIBLE'), findsOneWidget);
+    expect(find.text('En ligne • bots si besoin'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

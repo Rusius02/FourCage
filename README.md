@@ -10,8 +10,9 @@ collision et ne ralentit pas. L'application Android se joue en paysage.
 ## Modes de jeu
 
 - **Solo** : match contre trois bots, jouable hors ligne.
-- **Multijoueur** : le choix apparaît dans le menu, mais le jeu en ligne n'est
-  pas encore disponible. Le menu l'indique sans démarrer un faux match.
+- **Multijoueur** : rejoint une salle Colyseus de quatre joueurs. Le match
+  commence dès que la salle est pleine ou après 10 secondes au maximum ; les
+  places libres sont alors remplies par des bots.
 
 ## Jouer
 
@@ -77,17 +78,10 @@ Console. L'icône 512 × 512 pour la fiche Play se trouve dans
 `assets\store\fourcage-icon-512.png`. Incrémentez `version` dans `pubspec.yaml`
 pour chaque nouvelle version publiée.
 
-Le mode en ligne n'est pas implémenté dans cette première version : les trois
-adversaires sont des bots exécutés sur l'appareil.
+## Multijoueur local
 
-## Serveur Colyseus (base locale)
-
-Le dossier `server/` contient un mini-projet Node.js/TypeScript indépendant
-pour préparer un futur serveur Colyseus. Il ne contient pas encore de salle
-de jeu et n'est pas connecté à l'application Flutter.
-
-Prérequis : Node.js 22 ou supérieur. Pour le démarrer et vérifier son endpoint
-de santé :
+Le dossier `server/` contient le serveur Colyseus et la simulation autoritaire
+du match. Pour le démarrer, il faut Node.js 22 ou supérieur :
 
 ```powershell
 Set-Location server
@@ -95,10 +89,18 @@ npm install
 npm start
 ```
 
-Le serveur écoute sur `http://localhost:2567` et son état est disponible à
-`http://localhost:2567/health`. Pour exécuter les tests et compiler :
+L'émulateur Android utilise par défaut `ws://10.0.2.2:2567`. Depuis un
+téléphone, utilisez l'adresse IP locale du PC sur le même réseau Wi-Fi :
 
 ```powershell
-npm test
-npm run build
+flutter run --dart-define=COLYSEUS_SERVER_URL=ws://192.168.1.20:2567
 ```
+
+Le pare-feu doit autoriser le port `2567`. Les builds de production exigent une
+URL `wss://` avec TLS. Cette première intégration n'inclut pas encore
+l'authentification des comptes ni les protections anti-abus globales : ne
+publiez pas le serveur local tel quel sur Internet.
+
+Vérification du serveur : `Set-Location server`, puis `npm test` et
+`npm run build`. L'endpoint de santé est disponible sur
+`http://localhost:2567/health`.

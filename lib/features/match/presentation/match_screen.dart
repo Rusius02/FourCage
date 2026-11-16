@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,16 +6,20 @@ import 'package:flutter/scheduler.dart';
 
 import '../../../app/game_palette.dart';
 import '../application/match_controller.dart';
+import '../application/match_view_state.dart';
+import '../application/online_match_controller.dart';
 import '../application/tilt_movement_controller.dart';
 import '../domain/match_simulation.dart';
 import '../domain/vector2.dart';
 import '../infrastructure/accelerometer_tilt_input_source.dart';
+import '../infrastructure/online_match_session.dart';
 import 'pitch_painter.dart';
 
 class MatchScreen extends StatefulWidget {
-  const MatchScreen({super.key, this.tiltInputSource});
+  const MatchScreen({super.key, this.tiltInputSource, this.onlineSession});
 
   final TiltInputSource? tiltInputSource;
+  final OnlineMatchSession? onlineSession;
 
   @override
   State<MatchScreen> createState() => _MatchScreenState();
@@ -22,7 +27,7 @@ class MatchScreen extends StatefulWidget {
 
 class _MatchScreenState extends State<MatchScreen>
     with SingleTickerProviderStateMixin {
-  final MatchController _match = MatchController();
+  late final MatchViewState _match;
   late final TiltMovementController _tiltMovement;
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
@@ -31,6 +36,9 @@ class _MatchScreenState extends State<MatchScreen>
   @override
   void initState() {
     super.initState();
+    _match = widget.onlineSession == null
+        ? MatchController()
+        : OnlineMatchController(widget.onlineSession!);
     _tiltMovement = TiltMovementController(
       (widget.tiltInputSource ?? const AccelerometerTiltInputSource())
           .horizontalTilt,
@@ -63,6 +71,8 @@ class _MatchScreenState extends State<MatchScreen>
       ..removeListener(_updateMovementInput)
       ..dispose();
     _match.dispose();
+    final session = widget.onlineSession;
+    if (session != null) unawaited(session.close());
     super.dispose();
   }
 
@@ -191,7 +201,7 @@ class _GameBoard extends StatelessWidget {
     required this.onExit,
   });
 
-  final MatchController match;
+  final MatchViewState match;
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onRestart;
@@ -228,16 +238,20 @@ class _GameBoard extends StatelessWidget {
             right: 10,
             child: AnimatedBuilder(
               animation: match,
-              builder: (context, _) => IconButton(
-                onPressed: match.result == MatchResult.playing ? onPause : null,
-                visualDensity: VisualDensity.compact,
-                tooltip: 'Pause',
-                icon: const Icon(Icons.pause_rounded, size: 18),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: .3),
-                  foregroundColor: Colors.white70,
-                ),
-              ),
+              builder: (context, _) => match.canPause
+                  ? IconButton(
+                      onPressed: match.result == MatchResult.playing
+                          ? onPause
+                          : null,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Pause',
+                      icon: const Icon(Icons.pause_rounded, size: 18),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withValues(alpha: .3),
+                        foregroundColor: Colors.white70,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
           AnimatedBuilder(
@@ -276,6 +290,7 @@ class _GameBoard extends StatelessWidget {
             animation: match,
             builder: (context, _) => _MatchOverlay(
               result: match.result,
+              canRestart: match.canRestart,
               onResume: onResume,
               onRestart: onRestart,
               onExit: onExit,
@@ -290,12 +305,14 @@ class _GameBoard extends StatelessWidget {
 class _MatchOverlay extends StatelessWidget {
   const _MatchOverlay({
     required this.result,
+    required this.canRestart,
     required this.onResume,
     required this.onRestart,
     required this.onExit,
   });
 
   final MatchResult result;
+  final bool canRestart;
   final VoidCallback onResume;
   final VoidCallback onRestart;
   final VoidCallback onExit;
@@ -338,22 +355,23 @@ class _MatchOverlay extends StatelessWidget {
                 style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: paused ? onResume : onRestart,
-                style: FilledButton.styleFrom(
-                  backgroundColor: gameMint,
-                  foregroundColor: gameBackground,
-                  minimumSize: const Size(140, 38),
-                ),
-                child: Text(
-                  paused ? 'REPRENDRE' : 'REJOUER',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
+              if (paused || canRestart)
+                FilledButton(
+                  onPressed: paused ? onResume : onRestart,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: gameMint,
+                    foregroundColor: gameBackground,
+                    minimumSize: const Size(140, 38),
+                  ),
+                  child: Text(
+                    paused ? 'REPRENDRE' : 'REJOUER',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
-              ),
               if (!paused)
                 TextButton(
                   onPressed: onExit,
