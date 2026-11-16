@@ -17,14 +17,11 @@ class MatchController extends ChangeNotifier {
   String? get announcement => _simulation.announcement;
   int get humanLives => _simulation.humanLives;
   Vector2 get moveInput => _simulation.moveInput;
+  double get ballSpeed => _simulation.ballSpeed;
+  int get ballTouches => _simulation.ballTouches;
 
-  void setMoveInput(Vector2 input) {
-    _simulation.setMoveInput(input);
-    notifyListeners();
-  }
-
-  void shoot() {
-    _simulation.shoot();
+  void setMoveInput(Vector2 input, {double acceleration = 0}) {
+    _simulation.setMoveInput(input, acceleration: acceleration);
     notifyListeners();
   }
 

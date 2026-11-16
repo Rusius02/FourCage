@@ -8,7 +8,16 @@ enum MatchResult { playing, paused, won, lost }
 class MatchSimulation {
   static const double ballRadius = .018;
   static const double _playerRadius = .034;
-  static const double _goalHalfWidth = .105;
+  static const double _goalHalfWidth = .19;
+  static const double _goalLine = .043;
+  static const double _goalkeeperMinimum = .5 - _goalHalfWidth + _playerRadius;
+  static const double _goalkeeperMaximum = .5 + _goalHalfWidth - _playerRadius;
+  static const double _humanSpeed = .42;
+  static const double _botSpeed = .3;
+  static const double _collisionAcceleration = 1.12;
+  static const double _baseBallSpeed = .52;
+  static const double _maximumTravelPerStep = .012;
+  static const Vector2 _kickoffVelocity = Vector2(.34, .42);
   static const int startingLives = 3;
 
   final List<CagePlayer> players = [
@@ -17,34 +26,26 @@ class MatchSimulation {
   ];
 
   Vector2 ballPosition = const Vector2(.5, .5);
-  Vector2 _ballVelocity = Vector2.zero;
+  Vector2 _ballVelocity = _kickoffVelocity;
   Vector2 _moveInput = Vector2.zero;
+  double _movementBoost = 0;
   MatchResult result = MatchResult.playing;
   double elapsedSeconds = 0;
   double _resetTimer = 0;
   String? announcement;
   double _announcementTimer = 0;
+  int ballTouches = 0;
 
   int get humanLives => players[CageSide.south.index].lives;
   Vector2 get moveInput => _moveInput;
+  double get ballSpeed => _ballVelocity.length;
 
-  void setMoveInput(Vector2 input) {
-    _moveInput = input.length > 1 ? input.normalized() : input;
-    if (_moveInput.lengthSquared > .01) {
-      players[CageSide.south.index].facing = _moveInput.normalized();
-    }
-  }
-
-  void shoot() {
-    if (result != MatchResult.playing) return;
+  void setMoveInput(Vector2 input, {double acceleration = 0}) {
     final player = players[CageSide.south.index];
-    if (player.lives <= 0 ||
-        player.kickCooldown > 0 ||
-        (ballPosition - player.position).length > .24) {
-      return;
-    }
-    _kickTowardGoal(player);
-    player.kickCooldown = .38;
+    _moveInput = player.side.movesHorizontally
+        ? Vector2(input.x.clamp(-1, 1).toDouble(), 0)
+        : Vector2(0, input.y.clamp(-1, 1).toDouble());
+    _movementBoost = acceleration.clamp(0, 1).toDouble();
   }
 
   void pause() {
@@ -61,15 +62,16 @@ class MatchSimulation {
     for (final player in players) {
       player.position = player.home;
       player.lives = startingLives;
-      player.kickCooldown = 0;
     }
     ballPosition = const Vector2(.5, .5);
-    _ballVelocity = Vector2.zero;
+    _ballVelocity = _kickoffVelocity;
     _moveInput = Vector2.zero;
+    _movementBoost = 0;
     elapsedSeconds = 0;
     _resetTimer = 0;
     _announcementTimer = 0;
     announcement = null;
+    ballTouches = 0;
     result = MatchResult.playing;
   }
 
@@ -80,116 +82,130 @@ class MatchSimulation {
     _announcementTimer = math.max(0, _announcementTimer - delta);
     if (_announcementTimer == 0) announcement = null;
 
-    for (final player in players) {
-      player.kickCooldown = math.max(0, player.kickCooldown - delta);
-    }
-
     if (_resetTimer > 0) {
       _resetTimer = math.max(0, _resetTimer - delta);
       if (_resetTimer == 0) _resetPositions();
       return;
     }
 
+    final fastestSpeed = math.max(
+      _ballVelocity.length,
+      _humanSpeed * (1 + .75 * _movementBoost),
+    );
+    final steps = math.max(
+      1,
+      (fastestSpeed * delta / _maximumTravelPerStep).ceil(),
+    );
+    final stepDuration = delta / steps;
+
+    for (var step = 0; step < steps; step++) {
+      _movePlayers(stepDuration);
+      _moveBall(stepDuration);
+      if (result != MatchResult.playing || _resetTimer > 0) break;
+    }
+  }
+
+  void _movePlayers(double delta) {
     for (var index = 0; index < players.length; index++) {
       final player = players[index];
       if (player.lives <= 0) continue;
 
-      final input = player.isHuman ? _moveInput : _botInput(index);
-      if (input.lengthSquared > .01) player.facing = input.normalized();
-      final speed = player.isHuman ? .36 : .29;
-      player.position += input * (speed * delta);
-      player.position = Vector2(
-        player.position.x.clamp(.065, .935).toDouble(),
-        player.position.y.clamp(.065, .935).toDouble(),
-      );
-
-      if (!player.isHuman &&
-          (ballPosition - player.position).length < .16 &&
-          player.kickCooldown == 0) {
-        _kickTowardGoal(player);
-        player.kickCooldown = 1.15;
+      final input = player.isHuman ? _moveInput : _botInput(player);
+      final speed = player.isHuman
+          ? _humanSpeed * (1 + .75 * _movementBoost)
+          : _botSpeed;
+      if (player.side.movesHorizontally) {
+        player.position = Vector2(
+          (player.position.x + input.x * speed * delta)
+              .clamp(_goalkeeperMinimum, _goalkeeperMaximum)
+              .toDouble(),
+          player.home.y,
+        );
+      } else {
+        player.position = Vector2(
+          player.home.x,
+          (player.position.y + input.y * speed * delta)
+              .clamp(_goalkeeperMinimum, _goalkeeperMaximum)
+              .toDouble(),
+        );
       }
     }
-
-    _moveBall(delta);
   }
 
-  Vector2 _botInput(int playerIndex) {
-    final player = players[playerIndex];
-    if (player.kickCooldown > .7) return Vector2.zero;
-    final direction = ballPosition - player.position;
-    if (direction.length < .11) return Vector2.zero;
-    return direction.normalized();
-  }
-
-  void _kickTowardGoal(CagePlayer player) {
-    final targetIndex = _nearestOpponent(player);
-    if (targetIndex == null) return;
-    final direction = players[targetIndex].side.goalCenter - ballPosition;
-    if (direction.length == 0) return;
-    _ballVelocity = direction.normalized() * .78;
-  }
-
-  int? _nearestOpponent(CagePlayer player) {
-    final playerIndex = players.indexOf(player);
-    int? nearest;
-    var bestDistance = double.infinity;
-    for (var index = 0; index < players.length; index++) {
-      if (index == playerIndex || players[index].lives <= 0) continue;
-      final distance = players[index].side.goalCenter.distanceSquaredTo(
-        ballPosition,
-      );
-      if (distance < bestDistance) {
-        nearest = index;
-        bestDistance = distance;
-      }
+  Vector2 _botInput(CagePlayer player) {
+    if (player.side.movesHorizontally) {
+      final difference = ballPosition.x - player.position.x;
+      return Vector2(difference.abs() < .01 ? 0 : difference.sign, 0);
     }
-    return nearest;
+    final difference = ballPosition.y - player.position.y;
+    return Vector2(0, difference.abs() < .01 ? 0 : difference.sign);
   }
 
   void _moveBall(double delta) {
     ballPosition += _ballVelocity * delta;
-    _ballVelocity = _ballVelocity * math.max(0, 1 - 1.25 * delta);
 
     for (final player in players) {
       if (player.lives <= 0) continue;
       final offset = ballPosition - player.position;
       final distance = offset.length;
-      final minDistance = _playerRadius + ballRadius;
-      if (distance >= minDistance) continue;
-      final direction = distance > 0 ? offset.normalized() : player.facing;
-      ballPosition = player.position + direction * minDistance;
-      _ballVelocity += direction * .16;
+      final minimumDistance = _playerRadius + ballRadius;
+      if (distance >= minimumDistance) continue;
+
+      final normal = distance > 0 ? offset / distance : player.facing;
+      ballPosition = player.position + normal * minimumDistance;
+      _onPlayerCollision(player, normal);
     }
 
-    if (ballPosition.y < ballRadius + .025 &&
-        _isGoalOpening(ballPosition.x)) {
+    if (ballPosition.y < _goalLine && _isGoalOpening(ballPosition.x)) {
       _score(CageSide.north.index);
-    } else if (ballPosition.x > 1 - ballRadius - .025 &&
-        _isGoalOpening(ballPosition.y)) {
+      return;
+    }
+    if (ballPosition.x > 1 - _goalLine && _isGoalOpening(ballPosition.y)) {
       _score(CageSide.east.index);
-    } else if (ballPosition.y > 1 - ballRadius - .025 &&
-        _isGoalOpening(ballPosition.x)) {
+      return;
+    }
+    if (ballPosition.y > 1 - _goalLine && _isGoalOpening(ballPosition.x)) {
       _score(CageSide.south.index);
-    } else if (ballPosition.x < ballRadius + .025 &&
-        _isGoalOpening(ballPosition.y)) {
+      return;
+    }
+    if (ballPosition.x < _goalLine && _isGoalOpening(ballPosition.y)) {
       _score(CageSide.west.index);
-    } else {
-      if (ballPosition.x < ballRadius + .025 ||
-          ballPosition.x > 1 - ballRadius - .025) {
-        _ballVelocity = Vector2(-_ballVelocity.x * .76, _ballVelocity.y);
-      }
-      if (ballPosition.y < ballRadius + .025 ||
-          ballPosition.y > 1 - ballRadius - .025) {
-        _ballVelocity = Vector2(_ballVelocity.x, -_ballVelocity.y * .76);
-      }
+      return;
+    }
+
+    _bounceOffWalls();
+  }
+
+  void _onPlayerCollision(CagePlayer player, Vector2 normal) {
+    final incomingSpeed = _ballVelocity.length;
+    final approachSpeed = _ballVelocity.dot(normal);
+    var outgoing = approachSpeed < 0
+        ? _ballVelocity - normal * (2 * approachSpeed)
+        : _ballVelocity;
+
+    final input = player.isHuman ? _moveInput : _botInput(player);
+    outgoing += input * .16;
+    if (outgoing.lengthSquared < .0001) outgoing = normal;
+
+    final acceleratedSpeed =
+        math.max(incomingSpeed, _baseBallSpeed) * _collisionAcceleration;
+    _ballVelocity = outgoing.normalized() * acceleratedSpeed;
+    ballTouches++;
+  }
+
+  void _bounceOffWalls() {
+    if (ballPosition.x < _goalLine || ballPosition.x > 1 - _goalLine) {
+      _ballVelocity = Vector2(-_ballVelocity.x, _ballVelocity.y);
       ballPosition = Vector2(
-        ballPosition.x
-            .clamp(ballRadius + .025, 1 - ballRadius - .025)
-            .toDouble(),
-        ballPosition.y
-            .clamp(ballRadius + .025, 1 - ballRadius - .025)
-            .toDouble(),
+        ballPosition.x.clamp(_goalLine, 1 - _goalLine).toDouble(),
+        ballPosition.y,
+      );
+    }
+    if (ballPosition.y < _goalLine || ballPosition.y > 1 - _goalLine) {
+      _ballVelocity = Vector2(_ballVelocity.x, -_ballVelocity.y);
+      ballPosition = Vector2(
+        ballPosition.x,
+        ballPosition.y.clamp(_goalLine, 1 - _goalLine).toDouble(),
       );
     }
   }
@@ -200,15 +216,36 @@ class MatchSimulation {
   void _score(int targetIndex) {
     final target = players[targetIndex];
     if (target.lives <= 0) {
-      _ballVelocity = Vector2(-_ballVelocity.x, -_ballVelocity.y);
-      ballPosition = Vector2(
-        ballPosition.x
-            .clamp(ballRadius + .025, 1 - ballRadius - .025)
-            .toDouble(),
-        ballPosition.y
-            .clamp(ballRadius + .025, 1 - ballRadius - .025)
-            .toDouble(),
-      );
+      switch (target.side) {
+        case CageSide.north:
+          _ballVelocity = Vector2(_ballVelocity.x, _ballVelocity.y.abs());
+          ballPosition = Vector2(
+            ballPosition.x,
+            ballPosition.y.clamp(_goalLine, 1 - _goalLine).toDouble(),
+          );
+          break;
+        case CageSide.east:
+          _ballVelocity = Vector2(-_ballVelocity.x.abs(), _ballVelocity.y);
+          ballPosition = Vector2(
+            ballPosition.x.clamp(_goalLine, 1 - _goalLine).toDouble(),
+            ballPosition.y,
+          );
+          break;
+        case CageSide.south:
+          _ballVelocity = Vector2(_ballVelocity.x, -_ballVelocity.y.abs());
+          ballPosition = Vector2(
+            ballPosition.x,
+            ballPosition.y.clamp(_goalLine, 1 - _goalLine).toDouble(),
+          );
+          break;
+        case CageSide.west:
+          _ballVelocity = Vector2(_ballVelocity.x.abs(), _ballVelocity.y);
+          ballPosition = Vector2(
+            ballPosition.x.clamp(_goalLine, 1 - _goalLine).toDouble(),
+            ballPosition.y,
+          );
+          break;
+      }
       return;
     }
 
@@ -235,6 +272,7 @@ class MatchSimulation {
       if (player.lives > 0) player.position = player.home;
     }
     ballPosition = const Vector2(.5, .5);
-    _ballVelocity = Vector2.zero;
+    _ballVelocity = _kickoffVelocity;
+    ballTouches = 0;
   }
 }

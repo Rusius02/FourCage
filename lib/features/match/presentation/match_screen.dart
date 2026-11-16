@@ -5,12 +5,16 @@ import 'package:flutter/scheduler.dart';
 
 import '../../../app/game_palette.dart';
 import '../application/match_controller.dart';
+import '../application/tilt_movement_controller.dart';
 import '../domain/match_simulation.dart';
 import '../domain/vector2.dart';
+import '../infrastructure/accelerometer_tilt_input_source.dart';
 import 'pitch_painter.dart';
 
 class MatchScreen extends StatefulWidget {
-  const MatchScreen({super.key});
+  const MatchScreen({super.key, this.tiltInputSource});
+
+  final TiltInputSource? tiltInputSource;
 
   @override
   State<MatchScreen> createState() => _MatchScreenState();
@@ -19,12 +23,18 @@ class MatchScreen extends StatefulWidget {
 class _MatchScreenState extends State<MatchScreen>
     with SingleTickerProviderStateMixin {
   final MatchController _match = MatchController();
+  late final TiltMovementController _tiltMovement;
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
+  double _buttonInput = 0;
 
   @override
   void initState() {
     super.initState();
+    _tiltMovement = TiltMovementController(
+      (widget.tiltInputSource ?? const AccelerometerTiltInputSource())
+          .horizontalTilt,
+    )..addListener(_updateMovementInput);
     _ticker = createTicker((elapsed) {
       final delta = (elapsed - _lastTick).inMicroseconds / 1000000;
       _lastTick = elapsed;
@@ -32,9 +42,26 @@ class _MatchScreenState extends State<MatchScreen>
     })..start();
   }
 
+  void _setButtonInput(double input) {
+    _buttonInput = input;
+    _updateMovementInput();
+  }
+
+  void _updateMovementInput() {
+    final tiltInput = _tiltMovement.horizontalInput;
+    final direction = _buttonInput == 0 ? tiltInput : _buttonInput;
+    final canAccelerate =
+        _buttonInput == 0 || _buttonInput.sign == tiltInput.sign;
+    final acceleration = canAccelerate ? tiltInput.abs() : 0.0;
+    _match.setMoveInput(Vector2(direction, 0), acceleration: acceleration);
+  }
+
   @override
   void dispose() {
     _ticker.dispose();
+    _tiltMovement
+      ..removeListener(_updateMovementInput)
+      ..dispose();
     _match.dispose();
     super.dispose();
   }
@@ -52,9 +79,12 @@ class _MatchScreenState extends State<MatchScreen>
             children: [
               Expanded(
                 child: Center(
-                  child: _Joystick(
-                    match: _match,
-                    size: math.min(126, boardSize * .36),
+                  child: _MovementButton(
+                    label: 'GAUCHE',
+                    icon: Icons.arrow_left_rounded,
+                    onPressed: () => _setButtonInput(-1),
+                    onReleased: () => _setButtonInput(0),
+                    size: math.min(112, boardSize * .34),
                   ),
                 ),
               ),
@@ -71,9 +101,12 @@ class _MatchScreenState extends State<MatchScreen>
               ),
               Expanded(
                 child: Center(
-                  child: _KickButton(
-                    onPressed: _match.shoot,
-                    size: math.min(104, boardSize * .3),
+                  child: _MovementButton(
+                    label: 'DROITE',
+                    icon: Icons.arrow_right_rounded,
+                    onPressed: () => _setButtonInput(1),
+                    onReleased: () => _setButtonInput(0),
+                    size: math.min(112, boardSize * .34),
                   ),
                 ),
               ),
@@ -85,133 +118,67 @@ class _MatchScreenState extends State<MatchScreen>
   );
 }
 
-class _Joystick extends StatelessWidget {
-  const _Joystick({required this.match, required this.size});
+class _MovementButton extends StatelessWidget {
+  const _MovementButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    required this.onReleased,
+    required this.size,
+  });
 
-  final MatchController match;
-  final double size;
-
-  void _updateInput(Offset position) {
-    final center = Offset(size / 2, size / 2);
-    final offset = position - center;
-    final radius = size * .34;
-    final length = offset.distance;
-    final input = length > radius ? offset / length : offset / radius;
-    match.setMoveInput(Vector2(input.dx, input.dy));
-  }
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size,
-    child: Listener(
-      onPointerDown: (event) => _updateInput(event.localPosition),
-      onPointerMove: (event) => _updateInput(event.localPosition),
-      onPointerUp: (_) => match.setMoveInput(Vector2.zero),
-      onPointerCancel: (_) => match.setMoveInput(Vector2.zero),
-      child: AnimatedBuilder(
-        animation: match,
-        builder: (context, _) => Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: size * .9,
-              height: size * .9,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .045),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withValues(alpha: .12)),
-              ),
-            ),
-            Container(
-              width: size * .57,
-              height: size * .57,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withValues(alpha: .1)),
-              ),
-            ),
-            Transform.translate(
-              offset: Offset(match.moveInput.x, match.moveInput.y) * size * .28,
-              child: Container(
-                width: size * .31,
-                height: size * .31,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF7AF2D4), gameMint],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: gameMint.withValues(alpha: .3),
-                      blurRadius: 14,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.control_camera_rounded,
-                  color: const Color(0xFF072019),
-                  size: size * .18,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _KickButton extends StatelessWidget {
-  const _KickButton({required this.onPressed, required this.size});
-
+  final String label;
+  final IconData icon;
   final VoidCallback onPressed;
+  final VoidCallback onReleased;
   final double size;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onPressed,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      GestureDetector(
+        onTapDown: (_) => onPressed(),
+        onTapUp: (_) => onReleased(),
+        onTapCancel: onReleased,
+        child: Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFE08A), Color(0xFFFFB84D)],
+            color: const Color(0xFF10211B),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: gameMint.withValues(alpha: .55),
+              width: 2,
             ),
-            shape: BoxShape.circle,
             boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFFC45C).withValues(alpha: .2),
-                blurRadius: 22,
-                spreadRadius: 2,
-              ),
+              BoxShadow(color: gameMint.withValues(alpha: .14), blurRadius: 22),
             ],
           ),
-          child: Icon(
-            Icons.sports_soccer_rounded,
-            size: size * .47,
-            color: const Color(0xFF26190B),
-          ),
+          child: Icon(icon, size: size * .72, color: gameMint),
         ),
-        const SizedBox(height: 9),
-        const Text(
-          'TIRER',
-          style: TextStyle(
-            color: Color(0xFFFFD166),
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-          ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.4,
         ),
-      ],
-    ),
+      ),
+      const SizedBox(height: 4),
+      const Text(
+        'INCLINE POUR ACCÉLÉRER',
+        style: TextStyle(
+          color: gameMuted,
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: .9,
+        ),
+      ),
+    ],
   );
 }
 

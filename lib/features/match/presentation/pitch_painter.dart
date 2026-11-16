@@ -84,13 +84,13 @@ class PitchPainter extends CustomPainter {
     final Rect goal;
     switch (index) {
       case 0:
-        goal = const Rect.fromLTRB(.405, .025, .595, .09);
+        goal = const Rect.fromLTRB(.31, .012, .69, .105);
       case 1:
-        goal = const Rect.fromLTRB(.91, .405, .975, .595);
+        goal = const Rect.fromLTRB(.895, .31, .988, .69);
       case 2:
-        goal = const Rect.fromLTRB(.405, .91, .595, .975);
+        goal = const Rect.fromLTRB(.31, .895, .69, .988);
       default:
-        goal = const Rect.fromLTRB(.025, .405, .09, .595);
+        goal = const Rect.fromLTRB(.012, .31, .105, .69);
     }
     canvas.drawRect(goal, net);
     canvas.drawRRect(

@@ -120,7 +120,7 @@ class _ModeSelection extends StatelessWidget {
       ),
       SizedBox(height: compact ? 8 : 12),
       Text(
-        'Glisse pour bouger  ·  Tire pour frapper',
+        'Flèches · incline pour accélérer',
         textAlign: TextAlign.center,
         style: TextStyle(color: gameMuted, fontSize: compact ? 9 : 11),
       ),

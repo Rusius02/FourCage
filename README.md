@@ -3,7 +3,9 @@
 FourCage est un jeu de football arcade en vue de dessus, jouable hors ligne
 contre trois bots. Quatre joueurs défendent chacun une cage et disposent de
 trois vies. Marquez dans les cages adverses, éliminez les bots et protégez la
-vôtre. L'application Android se joue en paysage.
+vôtre. Chaque joueur reste sur sa ligne de but et se déplace uniquement dans
+la largeur de sa cage. Renvoyez la balle au contact ; elle accélère à chaque
+collision et ne ralentit pas. L'application Android se joue en paysage.
 
 ## Modes de jeu
 
@@ -13,9 +15,13 @@ vôtre. L'application Android se joue en paysage.
 
 ## Jouer
 
-- **Joystick gauche** : déplacer votre joueur.
-- **TIRER** : envoyer le ballon vers la cage adverse ouverte la plus proche
-  (vous devez être à portée du ballon).
+- **Contrôle horizontal** : déplacer votre gardien de gauche à droite dans la
+  largeur de sa cage.
+- Les grands boutons **GAUCHE** et **DROITE**, placés de chaque côté du
+  terrain, peuvent être maintenus pour se déplacer. Inclinez le téléphone
+  dans la même direction pour accélérer votre gardien.
+- Il n'y a pas de bouton de tir : toucher le ballon avec son gardien le renvoie.
+- La balle accélère à chaque contact et ne ralentit pas.
 - Chaque but encaissé retire une vie. Une cage éliminée est fermée.
 
 Lancez les tests avec `flutter test` et l'application avec `flutter run`.

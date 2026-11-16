@@ -26,7 +26,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('a match opens with shooting controls and can be paused', (
+  testWidgets('a match has large movement buttons and no speed statistics', (
     tester,
   ) async {
     await tester.pumpWidget(const FourCageApp());
@@ -34,7 +34,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('TIRER'), findsOneWidget);
+    expect(find.text('GAUCHE'), findsOneWidget);
+    expect(find.text('DROITE'), findsOneWidget);
+    expect(find.text('INCLINE POUR ACCÉLÉRER'), findsNWidgets(2));
+    expect(find.textContaining('CONTACT'), findsNothing);
+    expect(find.text('VITESSE'), findsNothing);
+    expect(find.text('TIRER'), findsNothing);
     expect(find.byTooltip('Pause'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Pause'));

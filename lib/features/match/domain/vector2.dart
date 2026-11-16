@@ -27,4 +27,6 @@ class Vector2 {
   double distanceTo(Vector2 other) => (this - other).length;
 
   double distanceSquaredTo(Vector2 other) => (this - other).lengthSquared;
+
+  double dot(Vector2 other) => x * other.x + y * other.y;
 }
