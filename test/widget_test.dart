@@ -1,23 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:four_cage/main.dart';
+import 'package:four_cage/app/four_cage_app.dart';
 
 void main() {
-  testWidgets('the home screen presents a way to start a match', (
+  testWidgets('the home screen offers solo and multiplayer modes', (
     tester,
   ) async {
     await tester.pumpWidget(const FourCageApp());
 
-    expect(find.text('JOUER'), findsOneWidget);
+    expect(find.text('SOLO'), findsOneWidget);
+    expect(find.text('MULTIJOUEUR'), findsOneWidget);
     expect(find.text('CAGES'), findsOneWidget);
     expect(find.text('3'), findsNWidgets(2));
+  });
+
+  testWidgets('multiplayer clearly explains that it is not available yet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const FourCageApp());
+    await tester.tap(find.text('MULTIJOUEUR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Multijoueur bientôt disponible'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('a match opens with shooting controls and can be paused', (
     tester,
   ) async {
     await tester.pumpWidget(const FourCageApp());
-    await tester.tap(find.text('JOUER'));
+    await tester.tap(find.text('SOLO'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 

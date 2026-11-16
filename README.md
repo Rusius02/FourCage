@@ -5,6 +5,12 @@ contre trois bots. Quatre joueurs défendent chacun une cage et disposent de
 trois vies. Marquez dans les cages adverses, éliminez les bots et protégez la
 vôtre. L'application Android se joue en paysage.
 
+## Modes de jeu
+
+- **Solo** : match contre trois bots, jouable hors ligne.
+- **Multijoueur** : le choix apparaît dans le menu, mais le jeu en ligne n'est
+  pas encore disponible. Le menu l'indique sans démarrer un faux match.
+
 ## Jouer
 
 - **Joystick gauche** : déplacer votre joueur.
@@ -13,6 +19,19 @@ vôtre. L'application Android se joue en paysage.
 - Chaque but encaissé retire une vie. Une cage éliminée est fermée.
 
 Lancez les tests avec `flutter test` et l'application avec `flutter run`.
+
+## Organisation du code
+
+Le code est organisé par fonctionnalité :
+
+- `lib/features/match/domain/` contient le moteur de match et les règles, sans
+  dépendance à Flutter.
+- `lib/features/match/application/` expose les actions du match à l'interface
+  via un contrôleur observable.
+- `lib/features/match/presentation/` contient l'écran de jeu et le rendu du
+  terrain.
+- `lib/features/home/presentation/` contient le menu et la sélection du mode.
+- `lib/app/` regroupe le thème et la palette partagée.
 
 ## Build Android
 
