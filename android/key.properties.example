@@ -1,0 +1,4 @@
+storePassword=REPLACE_WITH_KEYSTORE_PASSWORD
+keyPassword=REPLACE_WITH_KEY_PASSWORD
+keyAlias=fourcage-upload
+storeFile=C:/REPLACE_WITH_YOUR_WINDOWS_USER/fourcage-upload.jks
