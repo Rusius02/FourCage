@@ -79,3 +79,26 @@ pour chaque nouvelle version publiée.
 
 Le mode en ligne n'est pas implémenté dans cette première version : les trois
 adversaires sont des bots exécutés sur l'appareil.
+
+## Serveur Colyseus (base locale)
+
+Le dossier `server/` contient un mini-projet Node.js/TypeScript indépendant
+pour préparer un futur serveur Colyseus. Il ne contient pas encore de salle
+de jeu et n'est pas connecté à l'application Flutter.
+
+Prérequis : Node.js 22 ou supérieur. Pour le démarrer et vérifier son endpoint
+de santé :
+
+```powershell
+Set-Location server
+npm install
+npm start
+```
+
+Le serveur écoute sur `http://localhost:2567` et son état est disponible à
+`http://localhost:2567/health`. Pour exécuter les tests et compiler :
+
+```powershell
+npm test
+npm run build
+```

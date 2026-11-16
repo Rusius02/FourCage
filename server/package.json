@@ -1,0 +1,33 @@
+{
+  "private": true,
+  "name": "fourcage-server",
+  "version": "0.1.0",
+  "description": "Local Colyseus server foundation for FourCage",
+  "type": "module",
+  "main": "build/index.js",
+  "engines": {
+    "node": ">= 22.0.0"
+  },
+  "scripts": {
+    "start": "tsx watch src/index.ts",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "clean": "rimraf build",
+    "test": "node --import tsx --test test/server.test.ts"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@colyseus/sdk": "^0.18.1",
+    "@colyseus/testing": "^0.18.5",
+    "@types/express": "^5.0.6",
+    "rimraf": "^6.1.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.18.28",
+    "@colyseus/tools": "^0.18.1",
+    "@colyseus/ws-transport": "^0.18.5",
+    "express": "^5.2.1"
+  }
+}
